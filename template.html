@@ -1,0 +1,94 @@
+{% extends base.html %}
+
+{% block style %}
+h1 { font-size: 350%; height: 68px; line-height: 68px; font-variant: small-caps; background-color: #000; color: #fff; padding: 0 20px; }
+h1 span { font-size: 50%; color: #ccc; }
+#legend { height: 68px; width: 50%; top: 0; right: 0; position: absolute; color: #fff; text-align: right; padding: 0 10px; font-family: Georgia, serif; font-size: 14px; }
+#legend b { padding: 0 4px; font-family: Calibri, sans-serif; }
+#treemap { display: block; }
+#treemap rect { stroke-width: 0.4; stroke: rgba(255,255,255,1); }
+#treemap rect.selected { stroke-width: 2; stroke: #000; }
+#name { display: none; position: absolute; font-size: 125%; padding: 0.2em 0.5em; background-color: #ffc; border: 1px solid #ddd; max-width: 300px;
+  -webkit-box-shadow: 1px 1px 4px #888; /* Saf3.0+, Chrome */
+     -moz-box-shadow: 1px 1px 4px #888; /* FF3.5 - 3.6 */
+          box-shadow: 1px 1px 4px #888; /* Opera 10.5, IE9, FF4+, Chrome 10+ */
+}
+{% end %}
+
+{% block body %}
+{% import treemap %}
+{% import numpy %}
+{% import color %}
+{% import datetime %}
+
+{% set GRADIENT = (( 0.0, '#FF4142'), (0.5, '#FFD026'), (1.0, '#AAE817')) %}
+{% set SRLO, SRHI = 20, 120 %}
+{% set WIDTH, HEIGHT = 1366, 700 %}
+{% set data1 = data %}
+{% set data1['Runs'] = numpy.nan_to_num(data1['Runs']) %}
+
+{% comment adjust for time %}
+{% set meandate = datetime.datetime(year=1998, month=5, day=1) %}
+{% for row in data1 %}
+  {% set row['S/R'] -= (datetime.datetime.strptime(row['Date'], '%d/%m/%Y') - meandate).days * 0.0015 %}
+{% end %}
+
+{% set summary = data1.aggregate(On=['Name'], AggFunc=lambda x:None, AggFuncDict={'Runs':numpy.nansum}) %}
+{% set summary.sort(order=['Runs']) %}
+{% set summary = summary[::-1][:50] %}
+{% set tm = treemap.Squarified(x=0, y=0, width=WIDTH, height=HEIGHT, data=summary, size=lambda x:x['Runs']) %}
+ {% apply single_line %}
+  <h1>India ODI batting performance <span>by Gramener</span></h1>
+  <div id="legend">
+   Here's the one day batting performance of India's top 40 run-scorers in ODIs.
+   <br/>Each box represents one match. The size is the number of runs scored.
+   <br/>The color scale is based on the strike rate &#160;
+    <b style="width:30px; background-color:{{ color.gradient(0.0, GRADIENT) }}">{{ SRLO }}</b>
+    <b style="width:30px; background-color:{{ color.gradient(0.5, GRADIENT) }}">{{ (SRLO+SRHI)/2 }}</b>
+    <b style="width:30px; background-color:{{ color.gradient(1.0, GRADIENT) }}">{{ SRHI }}</b>
+  </div>
+  <svg id="treemap" width="{{ WIDTH }}" height="{{ HEIGHT }}" xmlns="http://www.w3.org/2000/svg">
+   {% for x, y, width, height, value in tm.draw() %}
+
+    {% set summary2 = data1[(data1['Name'] == value['Name']) & (data1['Runs'] > 0)] %}
+    {% set summary2.sort(order=['Runs']) %}
+    {% set summary2 = summary2[::-1] %}
+    {% set tm2 = treemap.Squarified(x=x, y=y, width=width, height=height, data=summary2, size=lambda x:x['Runs']) %}
+    {% for x2, y2, width2, height2, v2 in tm2.draw() %}
+     <rect x="{{ '%0.2f' % x2 }}" y="{{ '%0.2f' % y2 }}" width="{{ '%0.2f' % width2 }}" height="{{ '%0.2f' % height2 }}" fill="{{ color.gradient((v2['S/R']-SRLO)/(SRHI-SRLO), GRADIENT) }}" title=
+        "{{ int(v2['Runs']) }} runs at {{ '%0.1f' % v2['S/R'] }} S/R against {{ v2['Vs'] }} at {{ escape(v2['Ground']) }} on {{ v2['Date'] }}" />
+    {% end %}
+
+    {% set H = max(4, width/6) %}
+    {% set words = value['Name'].split(',') %}
+    {% if len(words) == 1 %}
+    <text x="{{ '%0.2f' % (x+width/2) }}" y="{{ '%0.2f' % (y+height/2) }}" dominant-baseline="middle" text-anchor="middle" style="font-size:{{ H }}px">{{ words[0] }}</text>
+    {% else %}
+    <text x="{{ '%0.2f' % (x+width/2) }}" y="{{ '%0.2f' % (y+height/2-H/2) }}" dominant-baseline="middle" text-anchor="middle" style="font-size:{{ H }}px">{{ words[1] }}</text>
+    <text x="{{ '%0.2f' % (x+width/2) }}" y="{{ '%0.2f' % (y+height/2+H/2) }}" dominant-baseline="middle" text-anchor="middle" style="font-size:{{ H }}px">{{ words[0] }}</text>
+    {% end %}
+   {% end %}
+  </svg>
+  <div id="name"></div>
+ {% end %}
+
+ <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.4/jquery.min.js"></script>
+ <script>
+ var $selected;
+ var $name = $('#name');
+
+ $('rect').hover(function() {
+   if ($selected) { $selected.removeAttr('class'); }
+   $selected = $(this).attr('class', 'selected');
+   var $this = $(this),
+       pos = $this.offset();
+   pos.top += 20;
+   pos.left += 20;
+   $name.text($this.attr('title')).offset(pos).show();
+ });
+ $('#treemap').hover(function() { }, function() {
+    $name.hide();
+    $selected.removeAttr('class');
+ })
+ </script>
+{% end %}
