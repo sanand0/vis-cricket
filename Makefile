@@ -1,8 +1,8 @@
-all: batting.xhtml
+all: batting-plain.xhtml batting-adjusted.xhtml
 
-batting.xhtml: ind_odi_batting.csv template.html
-	python D:/ext/vis/vis.py ind_odi_batting.csv template.html > $@
+batting-%.xhtml: odi_batting.csv template.html
+	python D:/ext/vis/vis.py odi_batting.csv template.html IND $* > $@
 
-ind_odi_batting.csv: howstat.py
-	python howstat.py
+odi_batting.csv: howstat.py
+	python howstat.py AUS ENG IND NZL PAK SAF SRL WIN > $@
 

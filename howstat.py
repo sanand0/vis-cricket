@@ -58,18 +58,20 @@ def player_odi_batting(playerid):
                 yield v
 
 
-def odi_batting(country, file):
+def odi_batting(countries, stream):
     out = None
-    for player in players_by_country(country):
-        sys.stderr.write(player['id'] + ': ' + player['Name'] + '\n')
-        sys.stderr.flush()
-        for match in player_odi_batting(player['id']):
-            match['Name'] = player['Name']
-            if out is None:
-                keys = match.keys()
-                out = csv.DictWriter(open(file, 'w'), keys, lineterminator='\n')
-                out.writerow(dict(zip(keys, keys)))
-            out.writerow(match)
+    for country in countries:
+        for player in players_by_country(country):
+            sys.stderr.write(player['id'] + ': ' + player['Name'] + '\n')
+            sys.stderr.flush()
+            for match in player_odi_batting(player['id']):
+                match['Name'] = player['Name']
+                match['Country'] = country
+                if out is None:
+                    keys = match.keys()
+                    out = csv.DictWriter(stream, keys, lineterminator='\n')
+                    out.writerow(dict(zip(keys, keys)))
+                out.writerow(match)
 
 if __name__ == '__main__':
-    odi_batting('IND', 'ind_odi_batting.csv')
+    odi_batting(sys.argv[1:], sys.stdout)

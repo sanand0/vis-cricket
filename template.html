@@ -21,16 +21,19 @@ h1 span { font-size: 50%; color: #ccc; }
 {% import color %}
 {% import datetime %}
 
+{% set country, adjusted = args %}
 {% set GRADIENT = (( 0.0, '#FF4142'), (0.5, '#FFD026'), (1.0, '#AAE817')) %}
 {% set SRLO, SRHI = 20, 120 %}
 {% set WIDTH, HEIGHT = 1366, 700 %}
-{% set data1 = data %}
+{% set data1 = data[data['Country'] == country] %}
 {% set data1['Runs'] = numpy.nan_to_num(data1['Runs']) %}
 
-{% comment adjust for time %}
-{% set meandate = datetime.datetime(year=1998, month=5, day=1) %}
-{% for row in data1 %}
+{% comment adjust for increasing S/R over time %}
+{% if adjusted.lower().startswith('adjusted') %}
+ {% set meandate = datetime.datetime(year=1998, month=5, day=1) %}
+ {% for row in data1 %}
   {% set row['S/R'] -= (datetime.datetime.strptime(row['Date'], '%d/%m/%Y') - meandate).days * 0.0015 %}
+ {% end %}
 {% end %}
 
 {% set summary = data1.aggregate(On=['Name'], AggFunc=lambda x:None, AggFuncDict={'Runs':numpy.nansum}) %}
