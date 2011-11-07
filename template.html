@@ -21,7 +21,7 @@ h1 span { font-size: 50%; color: #ccc; }
 {% import color %}
 {% import datetime %}
 
-{% set country, adjusted = args %}
+{% set country, adjusted = args[0].split('-') %}
 {% set GRADIENT = (( 0.0, '#FF4142'), (0.5, '#FFD026'), (1.0, '#AAE817')) %}
 {% set SRLO, SRHI = 20, 120 %}
 {% set WIDTH, HEIGHT = 1366, 700 %}
@@ -39,9 +39,9 @@ h1 span { font-size: 50%; color: #ccc; }
 {% set summary = data1.aggregate(On=['Name'], AggFunc=lambda x:None, AggFuncDict={'Runs':numpy.nansum}) %}
 {% set summary.sort(order=['Runs']) %}
 {% set summary = summary[::-1][:50] %}
-{% set tm = treemap.Squarified(x=0, y=0, width=WIDTH, height=HEIGHT, data=summary, size=lambda x:x['Runs']) %}
+{% set tm = list(treemap.Squarified(x=0, y=0, width=WIDTH, height=HEIGHT, data=summary, size=lambda x:x['Runs']).draw()) %}
  {% apply single_line %}
-  <h1>India ODI batting performance <span>by Gramener</span></h1>
+  <h1>{{ country }} ODI batting performance <span>by Gramener</span></h1>
   <div id="legend">
    Here's the one day batting performance of India's top 40 run-scorers in ODIs.
    <br/>Each box represents one match. The size is the number of runs scored.
@@ -51,8 +51,7 @@ h1 span { font-size: 50%; color: #ccc; }
     <b style="width:30px; background-color:{{ color.gradient(1.0, GRADIENT) }}">{{ SRHI }}</b>
   </div>
   <svg id="treemap" width="{{ WIDTH }}" height="{{ HEIGHT }}" xmlns="http://www.w3.org/2000/svg">
-   {% for x, y, width, height, value in tm.draw() %}
-
+   {% for x, y, width, height, value in tm %}
     {% set summary2 = data1[(data1['Name'] == value['Name']) & (data1['Runs'] > 0)] %}
     {% set summary2.sort(order=['Runs']) %}
     {% set summary2 = summary2[::-1] %}
@@ -61,7 +60,9 @@ h1 span { font-size: 50%; color: #ccc; }
      <rect x="{{ '%0.2f' % x2 }}" y="{{ '%0.2f' % y2 }}" width="{{ '%0.2f' % width2 }}" height="{{ '%0.2f' % height2 }}" fill="{{ color.gradient((v2['S/R']-SRLO)/(SRHI-SRLO), GRADIENT) }}" title=
         "{{ int(v2['Runs']) }} runs at {{ '%0.1f' % v2['S/R'] }} S/R against {{ v2['Vs'] }} at {{ escape(v2['Ground']) }} on {{ v2['Date'] }}" />
     {% end %}
+   {% end %}
 
+   {% for x, y, width, height, value in tm %}
     {% set H = max(4, width/6) %}
     {% set words = value['Name'].split(',') %}
     {% if len(words) == 1 %}
