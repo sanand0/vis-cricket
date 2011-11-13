@@ -1,4 +1,4 @@
-COUNTRIES = AUS ENG IND NZL PAK SAF SRL WIN
+COUNTRIES = AUS ENG IND NZL PAK SAF SRL WIN World
 
 all: $(foreach COUNTRY,$(COUNTRIES),batting-$(COUNTRY)-plain.xhtml batting-$(COUNTRY)-adjusted.xhtml)
 
