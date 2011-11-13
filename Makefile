@@ -1,10 +1,9 @@
-COUNTRIES = AUS ENG IND NZL PAK SAF SRL WIN World
+COUNTRIES = Australia England India Pakistan New-Zealand South-Africa Sri-Lanka West-Indies
 
 all: $(foreach COUNTRY,$(COUNTRIES),batting-$(COUNTRY)-plain.xhtml batting-$(COUNTRY)-adjusted.xhtml)
 
-batting-%.xhtml: odi_batting.csv template.html
-	python D:/ext/vis/vis.py odi_batting.csv template.html $* > $@
+batting-%-plain.xhtml: odi_batting.csv template.html
+	python D:/ext/vis/vis.py odi_batting.csv template.html "$(subst -, ,$*)" plain > $@
 
-odi_batting.csv: howstat.py
-	python howstat.py $(COUNTRIES) > $@
-
+batting-%-adjusted.xhtml: odi_batting.csv template.html
+	python D:/ext/vis/vis.py odi_batting.csv template.html "$(subst -, ,$*)" adjusted > $@
