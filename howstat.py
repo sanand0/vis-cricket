@@ -57,6 +57,23 @@ def player_odi_batting(playerid):
 
                 yield v
 
+def player_odi_bowling(playerid):
+    url = (BASE + '/cricket/Statistics/Players/PlayerProgressBowl_ODI.asp?' +
+           urlencode({'PlayerId': playerid}))
+    tree = get(url)
+    table = tree.findall('.//table')
+    if len(table) > 2:
+        table = table[-2]
+        rows = table.findall('tr')
+        header = [t.text.strip() for t in rows.pop(0).findall('td')]
+        count = 1
+        for row in rows:
+            v = dict(zip(header, [t.text.strip() for t in row.findall('td')]))
+            if 'Wkts' in v:
+                v['Match'] = count
+                count += 1
+                yield v
+
 
 def odi_batting(countries, stream):
     out = None
@@ -73,5 +90,23 @@ def odi_batting(countries, stream):
                     out.writerow(dict(zip(keys, keys)))
                 out.writerow(match)
 
+
+def odi_bowling(countries, stream):
+    out = None
+    for country in countries:
+        for player in players_by_country(country):
+            #sys.stderr.write( 'in Bowling'+ '\n')
+            sys.stderr.write(player['id'] + ': ' + player['Name'] + '\n')
+            sys.stderr.flush()
+            for match in player_odi_bowling(player['id']):
+                match['Name'] = player['Name']
+                match['Country'] = country
+                if out is None:
+                    keys = match.keys()
+                    out = csv.DictWriter(stream, keys, lineterminator='\n')
+                    out.writerow(dict(zip(keys, keys)))
+                out.writerow(match)
+
 if __name__ == '__main__':
     odi_batting(sys.argv[1:], sys.stdout)
+    odi_bowling(sys.argv[1:], sys.stdout)
