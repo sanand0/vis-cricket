@@ -32,73 +32,54 @@ def players_by_country(country):
                 'Name': link.text
             }
 
-def player_odi_batting(playerid):
-    url = (BASE + '/cricket/Statistics/Players/PlayerProgressBat_ODI.asp?' +
+def player_stats(path, playerid):
+    url = (BASE + '/cricket/Statistics/Players/' + path + '?' +
            urlencode({'PlayerId': playerid}))
     tree = get(url)
     table = tree.findall('.//table')
     if len(table) > 2:
         table = table[-2]
         rows = table.findall('tr')
-        header = [t.text.strip() for t in rows.pop(0).findall('td')]
-        count = 1
+        header = [td.text.strip() for td in rows.pop(0).findall('td')]
         for row in rows:
-            v = dict(zip(header, [t.text.strip() for t in row.findall('td')]))
-            if 'Runs' in v:
-                v['Runs'] = v['Runs'].replace('DNB', '')
-                if v['Runs'].find('*') >= 0:
-                    v['Runs'] = v['Runs'].replace('*', '')
-                    v['Not Out'] = 1
-                else:
-                    v['Not Out'] = 0
+            values = [td.text.strip()
+                      for td in row.findall('td')]
+            yield dict(zip(header, values))
 
-                v['Match'] = count
-                count += 1
+def player_odi_batting(playerid):
+    for row in player_stats('PlayerProgressBat_ODI.asp', playerid):
+        if 'Runs' in row:
+            row['Runs'] = row['Runs'].replace('DNB', '')
+            if row['Runs'].find('*') >= 0:
+                row['Runs'] = row['Runs'].replace('*', '')
+                row['Not Out'] = 1
+            else:
+                row['Not Out'] = 0
 
-                yield v
+            yield row
 
 def player_odi_bowling(playerid):
-    url = (BASE + '/cricket/Statistics/Players/PlayerProgressBowl_ODI.asp?' +
-           urlencode({'PlayerId': playerid}))
-    tree = get(url)
-    table = tree.findall('.//table')
-    if len(table) > 2:
-        table = table[-2]
-        rows = table.findall('tr')
-        header = [t.text.strip() for t in rows.pop(0).findall('td')]
-        count = 1
-        for row in rows:
-            v = dict(zip(header, [t.text.strip() for t in row.findall('td')]))
-            if 'Wkts' in v:
-                v['Match'] = count
-                count += 1
-                yield v
+    career_balls, career_runs = 0, 0
+    for row in player_stats('PlayerProgressBowl_ODI.asp', playerid):
+        if 'Wkts' in row and '/' in row['Wkts']:
+            # The wickets column looks like this: 3/24 (3 wickets for 24 runs)
+            row['Wkts'], row['Runs'] =  row['Wkts'].split('/')
 
+            # #overs isn't available. But E/R = 6*career_runs/career_balls
+            career_runs += int(row['Runs'])
+            new_career_balls = int(0.5 + 6 * career_runs / float(row['E/R']))
+            row['Balls'] = new_career_balls - career_balls
+            career_balls = new_career_balls
 
-def odi_batting(countries, stream):
+            yield row
+
+def country_stats(method, countries, stream):
     out = None
     for country in countries:
         for player in players_by_country(country):
             sys.stderr.write(player['id'] + ': ' + player['Name'] + '\n')
             sys.stderr.flush()
-            for match in player_odi_batting(player['id']):
-                match['Name'] = player['Name']
-                match['Country'] = country
-                if out is None:
-                    keys = match.keys()
-                    out = csv.DictWriter(stream, keys, lineterminator='\n')
-                    out.writerow(dict(zip(keys, keys)))
-                out.writerow(match)
-
-
-def odi_bowling(countries, stream):
-    out = None
-    for country in countries:
-        for player in players_by_country(country):
-            #sys.stderr.write( 'in Bowling'+ '\n')
-            sys.stderr.write(player['id'] + ': ' + player['Name'] + '\n')
-            sys.stderr.flush()
-            for match in player_odi_bowling(player['id']):
+            for match in method(player['id']):
                 match['Name'] = player['Name']
                 match['Country'] = country
                 if out is None:
@@ -108,5 +89,5 @@ def odi_bowling(countries, stream):
                 out.writerow(match)
 
 if __name__ == '__main__':
-    odi_batting(sys.argv[1:], sys.stdout)
-    odi_bowling(sys.argv[1:], sys.stdout)
+    country_stats(player_odi_batting, sys.argv[1:], sys.stdout)
+    country_stats(player_odi_bowling, sys.argv[1:], sys.stdout)
