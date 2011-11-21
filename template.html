@@ -91,13 +91,13 @@ def player_average(value):
   {% for x, y, width, height, value in tm %}
    {% set rate_plain, rate_adjusted = player_average(value) %}
    <rect x="{{ '%0.2f' % x }}" y="{{ '%0.2f' % y }}" width="{{ '%0.2f' % width }}" height="{{ '%0.2f' % height }}" fill="{{ color.gradient(rate_adjusted if is_adjusted else rate_plain, GRADIENT) }}" title=
-   "{{ int(value['Runs']) }} runs at {{ '%0.1f' % rate_plain }}{{ (' (%0.1f adjusted)' % rate_adjusted) if is_adjusted else '' }} S/R. Click for details" />
+   "{{ int(value['Runs']) }}|{{ '%0.1f' % rate_plain }}|{{ ('%0.1f' % rate_adjusted) if is_adjusted else '' }}" />
          />
    <g class="details">
     {% for x2, y2, width2, height2, v2 in player_treemap(x, y, width, height, value).draw() %}
      <rect x="{{ '%0.2f' % x2 }}" y="{{ '%0.2f' % y2 }}" width="{{ '%0.2f' % width2 }}" height="{{ '%0.2f' % height2 }}" fill="{{ color.gradient(v2['Effective ScoreRate'], GRADIENT) }}" title=
-        "{{ int(v2['Runs']) }} runs at {{ '%0.1f' % v2['ScoreRate'] }}{{ (' (%0.1f adjusted)' % v2['Effective ScoreRate']) if is_adjusted else '' }} S/R against {{ v2['Versus'] }} at {{ escape(v2['Ground']) }} on {{ v2['MatchDate'] }}" data-url=
-        "{{ v2['URL'] }}"/>
+        "{{ int(v2['Runs']) }}|{{ '%0.1f' % v2['ScoreRate'] }}|{{ ('%0.1f' % v2['Effective ScoreRate']) if is_adjusted else '' }}|{{ v2['Versus'] }}|{{ escape(v2['Ground']) }}|{{ v2['MatchDate'] }}" m=
+        "{{ v2['URL'].replace('../Matches/MatchScorecard_ODI.asp?MatchCode=', '') }}"/>
     {% end %}
    </g>
   {% end %}
@@ -130,6 +130,21 @@ $('rect').mouseover(function() {
       w = +$this.attr('width'),
       h = +$this.attr('height');
 
+  // Calculate the text
+  var info          = $this.attr('title').split('|'),
+      runs          = info[0],
+      rate_plain    = info[1],
+      rate_adjusted = info[2],
+      versus        = info[3],
+      ground        = info[4],
+      date          = info[5];
+
+  var text = runs + " runs at " + rate_plain +
+    (rate_adjusted ? ' (' + rate_adjusted + ' adjusted)' : '') + ' S/R' +
+    (versus ? ' against ' + versus : '') +
+    (ground ? ' at '      + ground : '') +
+    (date   ? ' on '      + date   : '');
+
   // Center against the clicked rectangle
   pos.left = Math.round(pos.left + (w-{{ NAMEWIDTH }})/2);
 
@@ -139,7 +154,7 @@ $('rect').mouseover(function() {
   if (pos.left + {{ NAMEWIDTH }} > base.left + {{ WIDTH }}) { pos.left = base.left + {{ WIDTH }} - {{ NAMEWIDTH }}; }
 
   // Temporarily draw it (to get an idea of the height)
-  $name.text($this.attr('title')).offset(pos).show();
+  $name.text(text).offset(pos).show();
 
   // Place it just below or above the clicked rectangle
   if (pos.top  > {{ HEIGHT/2 }}) { pos.top -= 30 + $name.height(); } else { pos.top += h + 30; }
@@ -160,7 +175,10 @@ $('  g > rect').click(function(e) {
     $(this).parent('g').hide();
   }
   else {
-    window.open($(this).data('url').replace('../', 'http://www.howstat.com/cricket/Statistics/'));
+    window.open(
+      'http://www.howstat.com/cricket/Statistics/Matches/MatchScorecard_ODI.asp?MatchCode=' +
+      $(this).attr('m')
+    );
   }
 });
 
