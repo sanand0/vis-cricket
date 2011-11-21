@@ -1,7 +1,7 @@
 {% extends base.html %}
 
 {% block style %}
-{% set WIDTH, HEIGHT = 1366, 700 %}
+{% set WIDTH, HEIGHT, NAMEWIDTH = 1024, 600, 300 %}
 body { width: {{ WIDTH }}px; margin: 0 auto; position: relative; }
 h1 { font-size: 350%; height: 68px; line-height: 68px; font-variant: small-caps; background-color: #000; color: #fff; padding: 0 20px; }
 h1 span { font-size: 50%; color: #ccc; }
@@ -10,11 +10,16 @@ h1 span { font-size: 50%; color: #ccc; }
 #treemap { display: block; margin: 0 auto; }
 #treemap rect { stroke-width: 0.4; stroke: rgba(255,255,255,1); }
 #treemap rect.selected { stroke-width: 2; stroke: #000; }
-#name { display: none; position: absolute; font-size: 125%; padding: 0.2em 0.5em; background-color: #ffc; border: 1px solid #ddd; max-width: 300px;
+#name { display: none; position: absolute; font-size: 125%; padding: 0.2em 0.5em; background-color: #ffc; border: 1px solid #ddd;
+  text-align: center;
+  width: {{ NAMEWIDTH }}px;
   -webkit-box-shadow: 1px 1px 4px #888; /* Saf3.0+, Chrome */
      -moz-box-shadow: 1px 1px 4px #888; /* FF3.5 - 3.6 */
           box-shadow: 1px 1px 4px #888; /* Opera 10.5, IE9, FF4+, Chrome 10+ */
 }
+/* Hovering on text passes the event through */
+text { pointer-events: none; }
+.details { display: none; }
 {% end %}
 
 {% block body %}
@@ -38,16 +43,15 @@ data1   = data1[data1['Country'] == country] if country != 'World' else data1
 players = 50                                 if country != 'World' else 100
 is_adjusted = adjusted.lower().startswith('adjusted')
 
-GRADIENT = ((20, '#FF4142'), (80, '#FFD026'), (140, '#AAE817'))
+GRADIENT = ((20, '#CC0000'), (50, '#FF4142'), (80, '#FFD026'), (110, '#AAE817'), (140, '#00FF00'))
 
 # adjust for increasing ScoreRate over time
-# It's been growing at 0.001385 a day (about 5.1 a decade)
-RATE = 0.001385
+# It's been growing at 0.00094236 a day (about 3.4 a decade)
+RATE = 0.00094236
 data1 = data1.addcols([data1['ScoreRate']], names=['Effective ScoreRate'])
 meandate = datetime.datetime(year=1998, month=5, day=1)
 for row in data1:
-    if is_adjusted:
-        row['Effective ScoreRate'] -= (datetime.datetime.strptime(row['MatchDate'], '%d/%m/%Y') - meandate).days * RATE
+    row['Effective ScoreRate'] -= (datetime.datetime.strptime(row['MatchDate'], '%d/%m/%Y') - meandate).days * RATE
 
 summary = data1.aggregate(On=['Player'], AggFunc=lambda x:None, AggFuncDict={'Runs':numpy.nansum})
 summary.sort(order=['Runs'])
@@ -61,25 +65,41 @@ def player_treemap(x, y, width, height, value):
     summary2 = summary2[::-1]
     return treemap.Squarified(x=x, y=y, width=width, height=height, data=summary2, size=lambda x:x['Runs'])
 
+def player_average(value):
+    """Returns the filtered treemap for a single player"""
+    summary2 = data1[data1['Player'] == value['Player']]
+    runs  = sum(summary2['Runs'])
+    balls_plain    = sum(summary2['Runs'] / summary2['ScoreRate'          ])
+    balls_adjusted = sum(summary2['Runs'] / summary2['Effective ScoreRate'])
+    return runs / balls_plain, runs / balls_adjusted
+
 {% end %}
 
 
 {% apply single_line %}
- <h1>{{ country }} ODI batting performance <span>by Gramener</span></h1>
+ <h1>{{ country }} ODI batting <span>by Gramener</span></h1>
  <div id="legend">
-  Here's the one day batting performance of {{ country }}'s top {{ players }} run-scorers in ODIs.
-  <br/>Each box represents one match. The size is the number of runs scored.
-  <br/>The color scale is based on the strike rate &#160;
+  Top {{ players }} batsmen
+  <br/>Box size = Number of runs
+  <br/>Colour = {{ 'adjusted' if is_adjusted else '' }} strike rate &#160;
    {% for value, gradientcolor in GRADIENT %}
     <b style="width:30px; background-color:{{ gradientcolor }}">{{ value }}</b>
    {% end %}
  </div>
+
  <svg id="treemap" width="{{ WIDTH }}" height="{{ HEIGHT }}" xmlns="http://www.w3.org/2000/svg">
   {% for x, y, width, height, value in tm %}
-   {% for x2, y2, width2, height2, v2 in player_treemap(x, y, width, height, value).draw() %}
-    <rect x="{{ '%0.2f' % x2 }}" y="{{ '%0.2f' % y2 }}" width="{{ '%0.2f' % width2 }}" height="{{ '%0.2f' % height2 }}" fill="{{ color.gradient(v2['Effective ScoreRate'], GRADIENT) }}" title=
-       "{{ int(v2['Runs']) }} runs at {{ '%0.1f' % v2['ScoreRate'] }}{{ (' (%0.1f adjusted)' % v2['Effective ScoreRate']) if is_adjusted else '' }} S/R against {{ v2['Versus'] }} at {{ escape(v2['Ground']) }} on {{ v2['MatchDate'] }}" />
-   {% end %}
+   {% set rate_plain, rate_adjusted = player_average(value) %}
+   <rect x="{{ '%0.2f' % x }}" y="{{ '%0.2f' % y }}" width="{{ '%0.2f' % width }}" height="{{ '%0.2f' % height }}" fill="{{ color.gradient(rate_adjusted if is_adjusted else rate_plain, GRADIENT) }}" title=
+   "{{ int(value['Runs']) }} runs at {{ '%0.1f' % rate_plain }}{{ (' (%0.1f adjusted)' % rate_adjusted) if is_adjusted else '' }} S/R. Click for details" />
+         />
+   <g class="details">
+    {% for x2, y2, width2, height2, v2 in player_treemap(x, y, width, height, value).draw() %}
+     <rect x="{{ '%0.2f' % x2 }}" y="{{ '%0.2f' % y2 }}" width="{{ '%0.2f' % width2 }}" height="{{ '%0.2f' % height2 }}" fill="{{ color.gradient(v2['Effective ScoreRate'], GRADIENT) }}" title=
+        "{{ int(v2['Runs']) }} runs at {{ '%0.1f' % v2['ScoreRate'] }}{{ (' (%0.1f adjusted)' % v2['Effective ScoreRate']) if is_adjusted else '' }} S/R against {{ v2['Versus'] }} at {{ escape(v2['Ground']) }} on {{ v2['MatchDate'] }}" data-url=
+        "{{ v2['URL'] }}"/>
+    {% end %}
+   </g>
   {% end %}
 
   {% for x, y, width, height, value in tm %}
@@ -88,8 +108,8 @@ def player_treemap(x, y, width, height, value):
    {% if len(words) == 1 %}
    <text x="{{ '%0.2f' % (x+width/2) }}" y="{{ '%0.2f' % (y+height/2) }}" dominant-baseline="middle" text-anchor="middle" style="font-size:{{ H }}px">{{ words[0] }}</text>
    {% else %}
-   <text x="{{ '%0.2f' % (x+width/2) }}" y="{{ '%0.2f' % (y+height/2-H/2) }}" dominant-baseline="middle" text-anchor="middle" style="font-size:{{ H }}px">{{ ' '.join(words[:1]) }}</text>
-   <text x="{{ '%0.2f' % (x+width/2) }}" y="{{ '%0.2f' % (y+height/2+H/2) }}" dominant-baseline="middle" text-anchor="middle" style="font-size:{{ H }}px">{{ ' '.join(words[1:]) }}</text>
+   <text x="{{ '%0.2f' % (x+width/2) }}" y="{{ '%0.2f' % (y+height/2-H/2) }}" dominant-baseline="middle" text-anchor="middle" style="font-size:{{ H }}px">{{ ' '.join(words[:len(words)//2]) }}</text>
+   <text x="{{ '%0.2f' % (x+width/2) }}" y="{{ '%0.2f' % (y+height/2+H/2) }}" dominant-baseline="middle" text-anchor="middle" style="font-size:{{ H }}px">{{ ' '.join(words[len(words)//2:]) }}</text>
    {% end %}
   {% end %}
  </svg>
@@ -97,22 +117,52 @@ def player_treemap(x, y, width, height, value):
 {% end %}
 
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.4/jquery.min.js"></script>
-<script>
+<script><![CDATA[
 var $selected;
 var $name = $('#name');
 
-$('rect').hover(function() {
+// Show the 'title' on hover
+$('rect').mouseover(function() {
   if ($selected) { $selected.removeAttr('class'); }
   $selected = $(this).attr('class', 'selected');
   var $this = $(this),
-      pos = $this.offset();
-  pos.top += 20;
-  pos.left += 20;
+      pos = $this.offset(),
+      w = +$this.attr('width'),
+      h = +$this.attr('height');
+
+  // Center against the clicked rectangle
+  pos.left = Math.round(pos.left + (w-{{ NAMEWIDTH }})/2);
+
+  // Ensure it's within the screen
+  var base = $('#treemap').position();
+  if (pos.left < base.left) { pos.left = base.left; }
+  if (pos.left + {{ NAMEWIDTH }} > base.left + {{ WIDTH }}) { pos.left = base.left + {{ WIDTH }} - {{ NAMEWIDTH }}; }
+
+  // Temporarily draw it (to get an idea of the height)
   $name.text($this.attr('title')).offset(pos).show();
+
+  // Place it just below or above the clicked rectangle
+  if (pos.top  > {{ HEIGHT/2 }}) { pos.top -= 30 + $name.height(); } else { pos.top += h + 30; }
+
+  $name.offset(pos).show();
 });
+
+// Hide the treemap when we move out
 $('#treemap').hover(function() { }, function() {
    $name.hide();
    $selected.removeAttr('class');
-})
-</script>
+});
+
+// Clicking on the rectangle toggles the details display
+$('svg > rect').click(function() { $(this).next('g').show(); });
+$('  g > rect').click(function(e) {
+  if (e.shiftKey || e.altKey || e.ctrlKey) {
+    $(this).parent('g').hide();
+  }
+  else {
+    window.open($(this).data('url').replace('../', 'http://www.howstat.com/cricket/Statistics/'));
+  }
+});
+
+//]]></script>
 {% end %}

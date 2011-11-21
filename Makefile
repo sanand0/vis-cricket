@@ -1,4 +1,4 @@
-COUNTRIES = Australia England India Pakistan New-Zealand South-Africa Sri-Lanka West-Indies
+COUNTRIES = World Australia England India Pakistan New-Zealand South-Africa Sri-Lanka West-Indies
 
 all: $(foreach COUNTRY,$(COUNTRIES),batting-$(COUNTRY)-plain.xhtml batting-$(COUNTRY)-adjusted.xhtml)
 
