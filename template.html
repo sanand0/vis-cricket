@@ -20,6 +20,10 @@ h1 span { font-size: 50%; color: #ccc; }
 /* Hovering on text passes the event through */
 text { pointer-events: none; }
 .details { display: none; }
+@media print {
+  .base { display:none; }
+  .details { display: block; }
+}
 {% end %}
 
 {% block body %}
@@ -77,6 +81,7 @@ def player_average(value):
 
 
 {% apply single_line %}
+{% block main %}
  <h1>{{ country }} ODI batting <span>by Gramener</span></h1>
  <div id="legend">
   Top {{ players }} batsmen
@@ -90,11 +95,11 @@ def player_average(value):
  <svg id="treemap" width="{{ WIDTH }}" height="{{ HEIGHT }}" xmlns="http://www.w3.org/2000/svg">
   {% for x, y, width, height, value in tm %}
    {% set rate_plain, rate_adjusted = player_average(value) %}
-   <rect x="{{ '%0.2f' % x }}" y="{{ '%0.2f' % y }}" width="{{ '%0.2f' % width }}" height="{{ '%0.2f' % height }}" fill="{{ color.gradient(rate_adjusted if is_adjusted else rate_plain, GRADIENT) }}" title=
+   <rect class="base" x="{{ '%0.2f' % x }}" y="{{ '%0.2f' % y }}" width="{{ '%0.2f' % width }}" height="{{ '%0.2f' % height }}" fill="{{ color.gradient(rate_adjusted if is_adjusted else rate_plain, GRADIENT) }}" title=
    "{{ int(value['Runs']) }}|{{ '%0.1f' % rate_plain }}|{{ ('%0.1f' % rate_adjusted) if is_adjusted else '' }}" />
          />
    <g class="details">
-    {% for x2, y2, width2, height2, v2 in player_treemap(x, y, width, height, value).draw() %}
+    {% for x2, y2, width2, height2, v2 in player_treemap(x+2, y+2, width-4, height-4, value).draw() %}
      <rect x="{{ '%0.2f' % x2 }}" y="{{ '%0.2f' % y2 }}" width="{{ '%0.2f' % width2 }}" height="{{ '%0.2f' % height2 }}" fill="{{ color.gradient(v2['Effective ScoreRate'], GRADIENT) }}" title=
         "{{ int(v2['Runs']) }}|{{ '%0.1f' % v2['ScoreRate'] }}|{{ ('%0.1f' % v2['Effective ScoreRate']) if is_adjusted else '' }}|{{ v2['Versus'] }}|{{ escape(v2['Ground']) }}|{{ v2['MatchDate'] }}" m=
         "{{ v2['URL'].replace('../Matches/MatchScorecard_ODI.asp?MatchCode=', '') }}"/>
@@ -114,6 +119,7 @@ def player_average(value):
   {% end %}
  </svg>
  <div id="name"></div>
+{% end %}
 {% end %}
 
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.4/jquery.min.js"></script>

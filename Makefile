@@ -7,3 +7,6 @@ batting-%-plain.xhtml: odi_batting.csv template.html
 
 batting-%-adjusted.xhtml: odi_batting.csv template.html
 	python D:/ext/vis/vis.py odi_batting.csv template.html "$(subst -, ,$*)" adjusted > $@
+
+%.pdf: %.xhtml
+	rasterize $+ $@ width=297mm height=210mm margin=10mm zoomFactor=1.65
